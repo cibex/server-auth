@@ -46,10 +46,19 @@ class AuthOauthProvider(models.Model):
         string="Token URL", help="Required for OpenID Connect authorization code flow."
     )
     jwks_uri = fields.Char(string="JWKS URL", help="Required for OpenID Connect.")
+    self_signed = fields.Boolean(string="Self-signed", help="Defines if the used certificate is self-signed.")
+    self_signed_verify = fields.Char(
+        string="Self-signed verify path",
+        help="Path to the self-signed certificate for the verification process."
+        "Empty value disables the verification."
+    )
 
     @tools.ormcache("self.jwks_uri", "kid")
     def _get_keys(self, kid):
-        r = requests.get(self.jwks_uri)
+        verify = True
+        if self.self_signed:
+            verify = self.self_signed_verify or False
+        r = requests.get(self.jwks_uri, verify=verify)
         r.raise_for_status()
         response = r.json()
         # the keys returned here should follow
