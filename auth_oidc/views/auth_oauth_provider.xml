@@ -22,6 +22,10 @@
             <field name="auth_endpoint" position="after">
                 <field name="auth_link_params" />
             </field>
+            <field name="data_endpoint" position="after">
+                <field name="self_signed" />
+                <field name="self_signed_verify" attrs="{'invisible': [('self_signed', '=', False)]}" />
+            </field>
         </field>
     </record>
 </odoo>
