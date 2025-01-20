@@ -8,7 +8,6 @@ from odoo.tools import consteq
 
 class AuthApiKey(models.Model):
     _name = "auth.api.key"
-    _inherit = "server.env.mixin"
     _description = "API Key"
 
     name = fields.Char(required=True)
@@ -24,28 +23,13 @@ class AuthApiKey(models.Model):
         help="""The user used to process the requests authenticated by
         the api key""",
     )
+    # Not using related to stay backward compatible with having active keys
+    # for archived users (no need being invoiced by Odoo for api request users)
+    active = fields.Boolean(
+        compute="_compute_active", readonly=False, store=True, default=True
+    )
 
     _sql_constraints = [("name_uniq", "unique(name)", "Api Key name must be unique.")]
-
-    def _server_env_section_name(self):
-        """Name of the section in the configuration files
-
-        We override the default implementation to keep the compatibility
-        with the previous implementation of auth_api_key. The section name
-        into the configuration file must be formatted as
-
-            'api_key_{name}'
-
-        """
-        self.ensure_one()
-        return "api_key_{}".format(self.name)
-
-    @property
-    def _server_env_fields(self):
-        base_fields = super()._server_env_fields
-        api_key_fields = {"key": {}}
-        api_key_fields.update(base_fields)
-        return api_key_fields
 
     @api.model
     def _retrieve_api_key(self, key):
@@ -57,7 +41,7 @@ class AuthApiKey(models.Model):
         if not self.env.user.has_group("base.group_system"):
             raise AccessError(_("User is not allowed"))
         for api_key in self.search([]):
-            if consteq(key, api_key.key):
+            if api_key.key and consteq(key, api_key.key):
                 return api_key.id
         raise ValidationError(_("The key %s is not allowed") % key)
 
@@ -69,6 +53,17 @@ class AuthApiKey(models.Model):
     def _clear_key_cache(self):
         self._retrieve_api_key_id.clear_cache(self.env[self._name])
         self._retrieve_uid_from_api_key.clear_cache(self.env[self._name])
+
+    @api.depends(
+        "user_id.active", "user_id.company_id.archived_user_disable_auth_api_key"
+    )
+    def _compute_active(self):
+        option_disable_key = self.user_id.company_id.archived_user_disable_auth_api_key
+        for record in self:
+            if option_disable_key:
+                record.active = record.user_id.active
+            # To stay coherent if the option is disabled the active field is not
+            # changed. Because the field is stored, it should not be an issue.
 
     @api.model
     def create(self, vals):
