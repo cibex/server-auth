@@ -49,6 +49,7 @@ class AuthOauthProvider(models.Model):
     auth_link_params = fields.Char(
         help="Additional parameters for the auth link. For example: {'prompt':'select_account'}"
     )
+    end_session_endpoint = fields.Char(string="End Session URL")
     self_signed = fields.Boolean(string="Self-signed", help="Defines if the used certificate is self-signed.")
     self_signed_verify = fields.Char(
         string="Self-signed verify path",
